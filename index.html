@@ -1,0 +1,1371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tia · Pixel Poodle</title>
+<style>
+  :root {
+    --bg: #b7e1f8;
+    --ink: #1a3a4a;
+    --muted: #4a7a96;
+    --line: rgba(40,100,150,0.18);
+    --card: #d8eef8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--ink);
+    overflow: hidden;
+  }
+  .scene {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    grid-template-rows: 1fr;
+    grid-template-areas: 'stage  legend';
+  }
+  .stage { grid-area: stage; }
+  .legend { grid-area: legend; padding: 24px 24px 24px 0; overflow: auto; position: relative; z-index: 1; }
+  .legend-card {
+    background: #ffffff;
+    border-radius: 18px;
+    padding: 22px 22px 24px;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 8px 24px rgba(60,40,20,0.08);
+  }
+  .legend-section + .legend-section { margin-top: 22px; }
+  .legend-h {
+    font-size: 9px;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #9a8a76;
+    margin-bottom: 8px;
+  }
+  .legend-now {
+    font-size: 22px;
+    letter-spacing: 0.04em;
+    color: #111;
+    font-weight: 600;
+    line-height: 1.1;
+  }
+  .legend-note {
+    font-size: 11px;
+    color: #6a5a44;
+    margin-top: 4px;
+    letter-spacing: 0.06em;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    appearance: none;
+    background: #111;
+    color: #fff;
+    border: 1px solid #111;
+    padding: 7px 11px;
+    font: inherit;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    cursor: pointer;
+    opacity: 0.55;
+    transition: opacity 120ms, transform 120ms;
+  }
+  .chip:hover { opacity: 0.85; transform: translateY(-1px); }
+  .chip.active { opacity: 1; }
+  @media (min-width: 721px) {
+    .scene {
+      grid-template-columns: 1fr;
+      grid-template-areas: 'stage';
+    }
+    .legend {
+      grid-area: unset;
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      padding: 0;
+      background: transparent !important;
+      overflow: visible;
+      z-index: 10;
+    }
+    .legend-card {
+      background: rgba(255,255,255,0.88) !important;
+      -webkit-backdrop-filter: blur(12px);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 14px 20px 16px;
+      box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 24px rgba(60,40,20,0.14) !important;
+      white-space: nowrap;
+    }
+    .legend-identity { display: none !important; }
+    .legend-section + .legend-section { margin-top: 14px; }
+  }
+  @media (max-width: 720px) {
+    .scene {
+      grid-template-columns: 1fr;
+      grid-template-areas: 'stage' 'legend';
+      grid-template-rows: 1fr auto;
+    }
+    .legend { padding: 0 16px 16px; }
+  }
+
+  @media (min-width: 768px) {
+    .top-badge { display: none; }
+    .badge-size { display: inline; }
+  }
+
+  @media (max-width: 480px) {
+    .top-badge {
+      max-width: 80%;
+    }
+    .badge-size { display: none; }
+    .legend-identity { display: none !important; }
+    .legend {
+      padding: 0;
+      width: 100%;
+    }
+    .legend-card {
+      border-radius: 20px 20px 0 0;
+      padding: 18px 20px 28px;
+    }
+    .id-name    { font-size: 21px; }
+    .id-meta    { font-size: 10px; letter-spacing: 0.18em; }
+    .legend-h   { font-size: 10px; letter-spacing: 0.2em; margin-bottom: 6px; }
+    .legend-now { font-size: 16px; }
+    .legend-note{ font-size: 10px; }
+    .chip       { font-size: 10px; padding: 6px 10px; }
+  }
+
+  .id-row { display: block; line-height: 1.05; }
+  .id-name {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 38px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    color: #111;
+    margin-bottom: 8px;
+  }
+  .id-meta {
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #6a5a44;
+  }
+  .id-meta + .id-meta { margin-top: 4px; }
+
+  /* time-of-day tint overlay */
+  .tod-overlay {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 5;
+    transition: background 600ms ease, opacity 600ms ease;
+    mix-blend-mode: multiply;
+    opacity: 0;
+  }
+  .stage.tod-golden .tod-overlay { background: #f4b266; opacity: 0.42; }
+  .stage.tod-dusk   .tod-overlay { background: #6a4a78; opacity: 0.55; }
+  .stage.tod-night  .tod-overlay { background: #1d2a52; opacity: 0.72; }
+
+  /* main stage */
+  .stage {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    place-items: center;
+  }
+  .floor {
+    position: fixed;
+    inset: 0;
+    background:
+      linear-gradient(to bottom, transparent 0%, transparent 65%, rgba(170,120,70,0.18) 65.01%, rgba(170,120,70,0.05) 100%);
+    pointer-events: none;
+  }
+  @media (max-width: 480px) {
+    .floor {
+      background:
+        linear-gradient(to bottom, transparent 0%, transparent 50%, rgba(170,120,70,0.18) 50.01%, rgba(170,120,70,0.05) 100%);
+    }
+  }
+  canvas#dog, canvas#bg {
+    image-rendering: pixelated;
+    image-rendering: crisp-edges;
+  }
+  canvas#bg { position: fixed; inset: 0; width: 100%; height: 100%; }
+  canvas#dog { position: relative; z-index: 2; }
+  .ticker { z-index: 3; }
+  .label { z-index: 3; }
+  .stage.mothersday #floor, .stage.horses #floor { display: none; }
+  body.mothersday { background: #fadadd; }
+  body.horses { background: #a4d8ee; }
+  .label {
+    position: absolute;
+    bottom: 18px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .top-badge {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 10;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    background: rgba(255, 255, 255, 0.88);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    border-radius: 999px;
+    padding: 7px 18px;
+    box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 16px rgba(60,40,20,0.12);
+    white-space: nowrap;
+  }
+  .badge-name {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    color: #3a2010;
+  }
+  .badge-divider {
+    color: #b09070;
+    font-size: 12px;
+  }
+  .badge-meta {
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #6a5a44;
+  }
+  .badge-pipe {
+    margin: 0 5px;
+    color: #c0a880;
+  }
+  .badge-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge-credit {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #9a8a74;
+    gap: 0;
+  }
+  .badge-link {
+    color: #9a8a74;
+    text-decoration: none;
+  }
+  .badge-link:hover {
+    color: #3a2010;
+  }
+
+  .legend-modes-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: #9a8a76;
+    margin-bottom: 10px;
+    text-align: center;
+  }
+  @media (max-width: 720px) {
+    .legend-modes-label { display: none; }
+  }
+
+  .legend-card { position: relative; }
+
+  .ticker {
+    position: absolute;
+    top: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    letter-spacing: 0.3em;
+    color: var(--muted);
+    text-transform: uppercase;
+    user-select: none;
+  }
+  .ticker em {
+    font-style: normal;
+    color: #6a4a2a;
+    margin-left: 8px;
+    letter-spacing: 0.22em;
+  }
+</style>
+</head>
+<body>
+  <div class="top-badge">
+    <div class="badge-row">
+      <span class="badge-name">Tia</span>
+      <span class="badge-divider">·</span>
+      <span class="badge-meta"><span class="badge-size">16×18 sprite <span class="badge-pipe">|</span> </span>Chocolate mini poodle</span>
+    </div>
+    <div class="badge-row badge-credit">by&nbsp;<a class="badge-link" href="https://jomho.work" target="_blank" rel="noopener">jomho.work</a>,&nbsp;Jocelyn Horng</div>
+  </div>
+
+  <div class="scene">
+    <div class="stage" id="stage">
+      <div class="floor" id="floor"></div>
+      <canvas id="bg"></canvas>
+      <canvas id="dog"></canvas>
+      <div class="tod-overlay"></div>
+    </div>
+
+    <aside class="legend" id="legend">
+      <div class="legend-card">
+        <div class="legend-modes-label">Modes</div>
+        <div id="legend-body">
+          <div class="legend-section">
+            <div class="legend-h">State</div>
+            <div class="chips" id="states"></div>
+          </div>
+          <div class="legend-section">
+            <div class="legend-h">Background</div>
+            <div class="chips" id="bgs"></div>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div id="tweaks-root"></div>
+
+  <script>
+    const TWEAK_DEFAULTS = {
+      "coat": ["#7a4a2c","#5a341e","#3a1d0c","#a8784e","#cf9c6c"],
+      "energy": "normal",
+      "timeOfDay": "day",
+      "dogState": "sit",
+      "bgMode": "room",
+      "showCredit": true
+    };
+    window.TWEAK_DEFAULTS = TWEAK_DEFAULTS;
+    window.tweaks = { ...TWEAK_DEFAULTS };
+  </script>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- tweaks-panel (inlined) -->
+  <script type="text/babel">
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+  .twk-field{appearance:none;width:100%;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+  .twk-btn-trigger{appearance:none;position:fixed;right:16px;bottom:16px;z-index:2147483645;
+    background:#111;color:#fff;border:0;border-radius:999px;padding:8px 16px;
+    font:600 11px/1 ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.1em;
+    text-transform:uppercase;cursor:pointer;
+    box-shadow:0 2px 12px rgba(0,0,0,.22);transition:opacity 120ms,transform 120ms}
+  .twk-btn-trigger:hover{opacity:.85;transform:translateY(-1px)}
+  .twk-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:2147483645}
+  @media(max-width:480px){
+    .twk-backdrop{display:block}
+    .twk-panel{right:unset!important;bottom:unset!important;top:50%!important;left:50%!important;
+      transform:translate(-50%,-50%)!important;transform-origin:center;
+      width:calc(100vw - 40px)!important;max-width:340px}
+  }
+`;
+
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    const ro = typeof ResizeObserver !== 'undefined'
+      ? new ResizeObserver(clampToViewport)
+      : null;
+    if (ro) { ro.observe(document.documentElement); return () => ro.disconnect(); }
+    window.addEventListener('resize', clampToViewport);
+    return () => window.removeEventListener('resize', clampToViewport);
+  }, [open, clampToViewport]);
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      {!open && (
+        <button className="twk-btn-trigger" onClick={() => setOpen(true)}>
+          Tweaks
+        </button>
+      )}
+      {open && (
+        <>
+          <div className="twk-backdrop" onClick={() => setOpen(false)} />
+          <div ref={dragRef} className="twk-panel"
+               style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+            <div className="twk-hd" onMouseDown={onDragStart}>
+              <b>{title}</b>
+              <button className="twk-x" aria-label="Close tweaks"
+                      onMouseDown={(e) => e.stopPropagation()}
+                      onClick={() => setOpen(false)}>✕</button>
+            </div>
+            <div className="twk-body">{children}</div>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+function TweakColor({ label, value, options, onChange }) {
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <TweakRow label={label} inline>
+      <button className="twk-toggle" data-on={value ? '1' : '0'}
+              onClick={() => onChange(!value)}>
+        <i />
+      </button>
+    </TweakRow>
+  );
+}
+
+// ── Tweaks App ───────────────────────────────────────────────────────────────
+
+
+function TweaksApp() {
+  const [t, setTweak] = useTweaks(window.TWEAK_DEFAULTS);
+
+  React.useEffect(() => {
+    const onState = (e) => setTweak('dogState', e.detail);
+    const onBg = (e) => setTweak('bgMode', e.detail);
+    window.addEventListener('dogstatechange', onState);
+    window.addEventListener('bgmodechange', onBg);
+    return () => {
+      window.removeEventListener('dogstatechange', onState);
+      window.removeEventListener('bgmodechange', onBg);
+    };
+  }, []);
+
+  React.useEffect(() => {
+    window.tweaks = t;
+    const stage = document.getElementById('stage');
+    if (stage) {
+      stage.classList.remove('tod-day', 'tod-golden', 'tod-dusk', 'tod-night');
+      stage.classList.add('tod-' + t.timeOfDay);
+    }
+    if (window._setDogState) window._setDogState(t.dogState);
+    if (window._setBg) window._setBg(t.bgMode);
+    const badge = document.querySelector('.top-badge');
+    if (badge) badge.style.display = t.showCredit ? '' : 'none';
+  }, [t]);
+
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection label="Tia" />
+      <TweakSelect
+        label="Energy"
+        value={t.energy}
+        options={['chill', 'normal', 'zoomies']}
+        onChange={(v) => setTweak('energy', v)}
+      />
+      <TweakSection label="World" />
+      <TweakSelect
+        label="Time of day"
+        value={t.timeOfDay}
+        options={['day', 'golden', 'dusk', 'night']}
+        onChange={(v) => setTweak('timeOfDay', v)}
+      />
+      <TweakSection label="Branding" />
+      <TweakToggle
+        label="Show credit"
+        value={t.showCredit}
+        onChange={(v) => setTweak('showCredit', v)}
+      />
+    </TweaksPanel>
+  );
+}
+
+const tweaksRoot = document.getElementById('tweaks-root');
+if (tweaksRoot) {
+  ReactDOM.createRoot(tweaksRoot).render(<TweaksApp />);
+}
+  </script>
+
+  <!-- main poodle script -->
+  <script>
+/* =========================================================
+   Tia — front-facing chocolate pixel poodle, multi-state.
+   ========================================================= */
+
+const W = 16, H = 18;
+
+const PAL = {
+  '.': null,
+  M: '#7a4a2c',   // base chocolate
+  B: '#5a341e',   // mid-dark
+  D: '#3a1d0c',   // darkest curl shadow
+  L: '#a8784e',   // belly / chest highlight
+  H: '#cf9c6c',   // lightest highlight
+  O: '#1a0d05',   // black (eyes/outline accents)
+  P: '#d4847c',   // pink nose center
+  T: '#e8a59f',   // tongue / inner ear
+  E: '#fff5d8',   // eye glint
+};
+
+function currentPal() {
+  const c = window.tweaks && window.tweaks.coat;
+  if (!c) return PAL;
+  return {
+    ...PAL,
+    M: c[0] || PAL.M,
+    B: c[1] || PAL.B,
+    D: c[2] || PAL.D,
+    L: c[3] || PAL.L,
+    H: c[4] || PAL.H,
+  };
+}
+
+function row(s) {
+  if (s.length !== W) throw new Error('row width ' + s.length);
+  return s;
+}
+function frame(rows) {
+  if (rows.length !== H) throw new Error('rows ' + rows.length);
+  const a = new Array(W*H);
+  for (let y = 0; y < H; y++) {
+    const r = row(rows[y]);
+    for (let x = 0; x < W; x++) a[y*W+x] = r[x];
+  }
+  return a;
+}
+
+const SIT = frame([
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDMMMMMMMMMMMMDD",
+  "DDMMMMMMMMMMMMDD",
+  "DDOOMMMMMMMMOODD",
+  "DDOOMMMMMMMMOODD",
+  "DDMMMMMOOMMMMMDD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMMD.",
+  ".MMMMMMMMMMMMMM.",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const BLINK = frame([
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDMMMMMMMMMMMMDD",
+  "DDMMMMMMMMMMMMDD",
+  "DDMMMMMMMMMMMMDD",
+  "DDOOMMMMMMMMOODD",
+  "DDMMMMMOOMMMMMDD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMMD.",
+  ".MMMMMMMMMMMMMM.",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const TILT_L = frame([
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDDMMMMMMMMMMMDD",
+  "DDDMMMMMMMMMMMDD",
+  "DDDOOMMMMMMOOMDD",
+  "DDDOOMMMMMMOOMDD",
+  "DDDMMMMOOMMMMMDD",
+  "DDMMMMOPPOMMMMDD",
+  ".DDMMMMOOMMMMMD.",
+  ".MMMMMMMMMMMMMM.",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const TILT_R = frame([
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDMMMMMMMMMMMDDD",
+  "DDMMMMMMMMMMMDDD",
+  "DDMOOMMMMMMOODDD",
+  "DDMOOMMMMMMOODDD",
+  "DDMMMMMOOMMMMDDD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMDD.",
+  ".MMMMMMMMMMMMMM.",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const ALERT = frame([
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDMMMMMMMMMMMMDD",
+  "DMMMMMMMMMMMMMMD",
+  "DOOOMMMMMMMMOOOD",
+  "DOEOMMMMMMMMOEOD",
+  "DOOOMMMOOMMMOOOD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMMD.",
+  ".MMMMMMMMMMMMMM.",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const HAPPY = frame([
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDMMMMMMMMMMMMDD",
+  "DDMMMMMMMMMMMMDD",
+  "DDMMMMMMMMMMMMDD",
+  "DDOOMMMMMMMMOODD",
+  "DDMMMMMOOMMMMMDD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMMD.",
+  ".MMMMMMTTMMMMMM.",
+  "..MMMLTTTTLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const SLEEPY = frame([
+  "................",
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDMMMMMMMMMMMMDD",
+  "DDMMMMMMMMMMMMDD",
+  "DDOOMMMMMMMMOODD",
+  "DDMMMMMOOMMMMMDD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMMD.",
+  ".MMMMMMMMMMMMMM.",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const JUMP = frame([
+  "DD............DD",
+  "DDM..........MDD",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DMMMMMMMMMMMMMMD",
+  "DOOMMMMMMMMMMOOD",
+  "DOEMMMMMMMMMMEOD",
+  "DOOMMMMOOMMMMOOD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMMD.",
+  ".MMMMMMTTMMMMMM.",
+  "..MMMMMTTMMMMM..",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  "..MM.MMMMMM.MM..",
+  "................",
+]);
+
+const SHAKE = frame([
+  "................",
+  ".MMMMMMMMMMMMMM.",
+  "MMMMMMMMMMMMMMMM",
+  "DDDMMMMMMMMMMDDD",
+  "DDDDMMMMMMMMDDDD",
+  "DDDOOMMMMMMOODDD",
+  "DDDOOMMMMMMOODDD",
+  "DDDMMMMOOMMMMDDD",
+  "DDMMMMOPPOMMMMDD",
+  ".DMMMMMOOMMMMMD.",
+  ".MMMMMMMMMMMMMM.",
+  "..MMMLLLLLLMMM..",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLHHHHLLMMM.",
+  ".MMMLLLLLLLLMMM.",
+  ".MMMMMMMMMMMMMM.",
+  ".MM.MMM..MMM.MM.",
+  "................",
+]);
+
+const STATES = {
+  sit: {
+    label: 'Sit',
+    note: 'Idle · breathing · occasional blink',
+    play(t) {
+      const dy = Math.sin(t * 1.6) * 0.6;
+      const cycle = t % 3.5;
+      const blinking = cycle > 3.35;
+      return { sprite: blinking ? BLINK : SIT, dx: 0, dy, rotate: 0 };
+    },
+  },
+  wag: {
+    label: 'Wag',
+    note: 'Whole-body wag — tail-induced wiggle',
+    play(t) {
+      const dx = Math.sin(t * 9) * 1.2;
+      const rotate = Math.sin(t * 9) * 0.05;
+      return { sprite: HAPPY, dx, dy: 0, rotate };
+    },
+  },
+  tilt: {
+    label: 'Head tilt',
+    note: 'Curious head tilts left-right',
+    play(t) {
+      const cycle = (t % 3) / 3;
+      let sprite;
+      if (cycle < 0.4) sprite = TILT_L;
+      else if (cycle < 0.5) sprite = SIT;
+      else if (cycle < 0.9) sprite = TILT_R;
+      else sprite = SIT;
+      const rotate = cycle < 0.4 ? -0.08
+        : cycle < 0.5 ? 0
+        : cycle < 0.9 ? 0.08
+        : 0;
+      return { sprite, dx: 0, dy: 0, rotate };
+    },
+  },
+  alert: {
+    label: 'Alert',
+    note: 'Ears perked, eyes wide — heard something',
+    play(t) {
+      const tw = Math.sin(t * 22) * 0.3;
+      return { sprite: ALERT, dx: tw, dy: 0, rotate: 0 };
+    },
+  },
+  bounce: {
+    label: 'Bounce',
+    note: 'Excited little hops in place',
+    play(t) {
+      const cycle = (t * 2.2) % 1;
+      let dy, scaleY;
+      if (cycle < 0.3) {
+        dy = Math.sin(cycle / 0.3 * Math.PI) * 2;
+        scaleY = 1 - 0.06 * Math.sin(cycle / 0.3 * Math.PI);
+      } else {
+        const k = (cycle - 0.3) / 0.7;
+        dy = -Math.sin(k * Math.PI) * 26;
+        scaleY = 1 + 0.06 * Math.sin(k * Math.PI);
+      }
+      return {
+        sprite: cycle < 0.5 ? HAPPY : JUMP,
+        dx: 0, dy, rotate: 0, scaleY,
+      };
+    },
+  },
+  spin: {
+    label: 'Spin',
+    note: 'Quick zoomie twirl',
+    play(t) {
+      const phase = (t * 1.6) % 1;
+      const rotate = phase * Math.PI * 2;
+      const dy = -Math.abs(Math.sin(phase * Math.PI)) * 4;
+      const sprite = (phase > 0.2 && phase < 0.4) || (phase > 0.7 && phase < 0.9)
+        ? SHAKE : HAPPY;
+      return { sprite, dx: 0, dy, rotate, scaleX: Math.cos(rotate) };
+    },
+  },
+  sleep: {
+    label: 'Sleep',
+    note: 'Eyes shut, deep rest',
+    play(t) {
+      const dy = Math.sin(t * 0.9) * 0.6;
+      return { sprite: SLEEPY, dx: 0, dy, rotate: 0 };
+    },
+  },
+};
+
+// ── rendering ─────────────────────────────────────────────────────────────
+
+const cv = document.getElementById('dog');
+const ctx = cv.getContext('2d');
+
+function fitCanvas() {
+  const stage = document.querySelector('.stage');
+  const r = stage.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.style.width = r.width + 'px';
+  cv.style.height = r.height + 'px';
+  cv.width = Math.floor(r.width * dpr);
+  cv.height = Math.floor(r.height * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.imageSmoothingEnabled = false;
+}
+fitCanvas();
+window.addEventListener('resize', fitCanvas);
+
+function drawSprite(sprite, cx, cy, scale, tr) {
+  ctx.save();
+  ctx.translate(cx + (tr.dx||0), cy + (tr.dy||0));
+  if (tr.rotate) ctx.rotate(tr.rotate);
+  ctx.scale((tr.scaleX != null ? tr.scaleX : 1), (tr.scaleY != null ? tr.scaleY : 1));
+  ctx.translate(-W*scale/2, -H*scale/2);
+  const pal = currentPal();
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const c = pal[sprite[y*W + x]];
+      if (!c) continue;
+      ctx.fillStyle = c;
+      ctx.fillRect(x*scale, y*scale, scale, scale);
+    }
+  }
+  ctx.restore();
+}
+
+function drawShadow(cx, cy, scale, squish) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.scale(1, 0.32);
+  ctx.fillStyle = 'rgba(50, 28, 12, 0.28)';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, scale * 6.5 * squish, scale * 3.5, 0, 0, Math.PI*2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── backgrounds ───────────────────────────────────────────────────────────
+
+const bgCv = document.getElementById('bg');
+const bgCtx = bgCv.getContext('2d');
+const stage = document.getElementById('stage');
+
+function fitBg() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  bgCv.width = Math.floor(window.innerWidth * dpr);
+  bgCv.height = Math.floor(window.innerHeight * dpr);
+  bgCtx.setTransform(dpr,0,0,dpr,0,0);
+  bgCtx.imageSmoothingEnabled = false;
+}
+fitBg();
+window.addEventListener('resize', fitBg);
+
+function px(c, x, y, w, h, color) {
+  c.fillStyle = color;
+  c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+}
+
+function drawHeart(c, x, y, p, color) {
+  // 7-wide × 6-tall pixel heart
+  const shape = [
+    '.XX.XX.',
+    'XXXXXXX',
+    'XXXXXXX',
+    '.XXXXX.',
+    '..XXX..',
+    '...X...',
+  ];
+  for (let r = 0; r < shape.length; r++) {
+    for (let col = 0; col < shape[r].length; col++) {
+      if (shape[r][col] === 'X') px(c, x + col*p, y + r*p, p, p, color);
+    }
+  }
+}
+
+function drawMomFlower(c, x, y, p, color) {
+  // pink-toned flower with white center
+  px(c, x+p, y+2*p, p, 3*p, '#e8a0b0'); // stem
+  px(c, x, y+3*p, p, p, '#f4bfcf');      // left leaf
+  px(c, x+2*p, y+3*p, p, p, '#f4bfcf'); // right leaf
+  px(c, x+p, y, p, p, color);
+  px(c, x, y+p, p, p, color);
+  px(c, x+2*p, y+p, p, p, color);
+  px(c, x+p, y+2*p, p, p, '#fff5f8');   // center white
+  px(c, x+p, y+p, p, p, '#fff5f8');
+}
+
+function drawHorse(c, x, y, p, dark) {
+  const A = dark ? '#3d2a1c' : '#7a5a3a';
+  const M = '#1a1008';
+  const shape = [
+    '......AA',
+    '..AAAAAA',
+    'AAAAAAAA',
+    'AAAAAAAA',
+    'A.AA.AA.',
+    'A.AA.AA.',
+  ];
+  for (let r=0; r<shape.length; r++) {
+    for (let cc=0; cc<shape[r].length; cc++) {
+      if (shape[r][cc]==='A') px(c, x+cc*p, y+r*p, p, p, A);
+    }
+  }
+  px(c, x+5*p, y+p, p, p, M);
+  px(c, x+6*p, y, p, p, M);
+  px(c, x, y+2*p, p, p, M);
+  px(c, x, y+3*p, p, p, M);
+  px(c, x+7*p, y+p+1, 1, 1, '#000');
+}
+
+let bgMode = 'room';
+let bgT0 = performance.now();
+
+function drawBackground() {
+  const w = window.innerWidth, h = window.innerHeight;
+  bgCtx.clearRect(0, 0, w, h);
+  if (bgMode === 'room') return;
+
+  const t = (performance.now() - bgT0) / 1000;
+  const p = Math.max(4, Math.floor(h / 70));
+  const mobileShift = window.innerWidth <= 480 ? h * 0.15 : 0;
+
+  // Pre-fill full canvas with ground color so mobileShift translate leaves no gap at bottom
+  bgCtx.fillStyle = bgMode === 'mothersday' ? '#f48fb1' : '#5fa843';
+  bgCtx.fillRect(0, 0, w, h);
+
+  if (mobileShift) { bgCtx.save(); bgCtx.translate(0, -mobileShift); }
+
+  if (bgMode === 'mothersday') {
+    // gradient anchored to canvas edges — starts at mobileShift so pure start color shows at canvas top
+    const grad = bgCtx.createLinearGradient(0, mobileShift, 0, h + mobileShift);
+    grad.addColorStop(0, '#fce4ec');
+    grad.addColorStop(1, '#f8bbd0');
+    bgCtx.fillStyle = grad;
+    bgCtx.fillRect(0, -mobileShift, w, h + 2 * mobileShift);
+
+    // soft pink ground strip — extend down to cover mobileShift gap
+    px(bgCtx, 0, h*0.65, w, h*0.35 + mobileShift, '#f48fb1');
+    px(bgCtx, 0, h*0.92, w, h*0.08, '#e8789822');
+
+    // floating hearts (above horizon only)
+    const heartColors = ['#f06292','#e91e8c','#f8bbd0','#ff80ab','#f48fb1','#ff4081'];
+    const hearts = [
+      { sx:0.08, sy:0.12, sz:1,   ph:0.0  },
+      { sx:0.22, sy:0.28, sz:1.5, ph:1.1  },
+      { sx:0.38, sy:0.08, sz:0.8, ph:2.3  },
+      { sx:0.55, sy:0.20, sz:1.2, ph:0.7  },
+      { sx:0.70, sy:0.10, sz:1,   ph:1.8  },
+      { sx:0.85, sy:0.30, sz:1.5, ph:0.4  },
+      { sx:0.14, sy:0.50, sz:0.8, ph:3.1  },
+      { sx:0.46, sy:0.42, sz:1,   ph:2.0  },
+      { sx:0.62, sy:0.55, sz:1.2, ph:1.5  },
+      { sx:0.90, sy:0.48, sz:0.8, ph:0.9  },
+      { sx:0.30, sy:0.62, sz:1,   ph:2.7  },
+      { sx:0.93, sy:0.15, sz:1.2, ph:2.1  },
+    ];
+    for (let i = 0; i < hearts.length; i++) {
+      const ho = hearts[i];
+      const bob = Math.sin(t * 0.9 + ho.ph) * p * 1.5;
+      const hp = Math.max(3, Math.round(p * ho.sz));
+      const hx = w * ho.sx - hp * 3.5;
+      const hy = h * ho.sy + bob;
+      drawHeart(bgCtx, hx, hy, hp, heartColors[i % heartColors.length]);
+    }
+
+    if (mobileShift) bgCtx.restore();
+    return;
+  }
+
+  // ── horses background ─────────────────────────────────────────────────────
+  const grad = bgCtx.createLinearGradient(0, mobileShift, 0, h*0.7 + mobileShift);
+  grad.addColorStop(0, '#a4d8ee');
+  grad.addColorStop(1, '#cdebf7');
+  bgCtx.fillStyle = grad;
+  bgCtx.fillRect(0, -mobileShift, w, h*0.7 + 2 * mobileShift);
+
+  bgCtx.fillStyle = '#7ab85a';
+  for (let x = 0; x < w; x += p*2) {
+    const hh = (Math.sin(x*0.012) * 0.5 + 0.5) * p*4 + p*3;
+    bgCtx.fillRect(x, h*0.55 - hh, p*2, hh + h*0.1);
+  }
+  px(bgCtx, 0, h*0.65, w, h*0.05, '#9ad06a');
+  px(bgCtx, 0, h*0.70, w, h*0.30, '#5fa843');
+  px(bgCtx, 0, h*0.95, w, h*0.05, '#7a5236');
+  for (let x = 0; x < w; x += p*4) {
+    const off = ((x*7919) % 13);
+    px(bgCtx, x, h*0.65 - p, p, p, '#5fa843');
+    px(bgCtx, x + p*2 + (off%3), h*0.65 - p, p, p, '#5fa843');
+  }
+
+  const fenceY = h * 0.58;
+  px(bgCtx, 0, fenceY, w, p, '#6a4a2a');
+  for (let x = p*4; x < w; x += p*8) {
+    px(bgCtx, x, fenceY - p*2, p, p*5, '#6a4a2a');
+  }
+  const isMobile = window.innerWidth <= 480;
+  const horses = [
+    { x: isMobile ? w*0.04 : w*0.18, y: h*0.62, dark: false, ph: 0 },
+    { x: w*0.78, y: h*0.61, dark: true,  ph: 2.4 },
+  ];
+  for (const ho of horses) {
+    const bob = Math.sin(t*1.4 + ho.ph) > 0.6 ? p : 0;
+    drawHorse(bgCtx, ho.x, ho.y + bob, p, ho.dark);
+  }
+  const pfc = ['#f7e030','#ffffff','#e8a0e0','#f4c842','#c8eaa0'];
+  const pfs = isMobile ? [
+    // mobile: left horse at 0.04, avoid dog at 0.50
+    [0.12,0.78],[0.26,0.72],[0.38,0.78],[0.62,0.79],[0.85,0.78],
+    [0.34,0.67],[0.62,0.67],
+  ] : [
+    // desktop/tablet: left horse at 0.18, right horse at 0.78 — avoid both
+    [0.04,0.78],[0.36,0.78],[0.52,0.79],[0.64,0.72],[0.90,0.78],
+    [0.06,0.68],[0.28,0.67],[0.48,0.68],[0.88,0.67],
+  ];
+  for (let i = 0; i < pfs.length; i++) {
+    drawMomFlower(bgCtx, w*pfs[i][0], h*pfs[i][1] - p*5, p, pfc[i % pfc.length]);
+  }
+  if (mobileShift) bgCtx.restore();
+}
+
+// ── state machine ─────────────────────────────────────────────────────────
+
+const stateOrder = ['sit','wag','tilt','alert','bounce','spin','sleep'];
+
+const bgOrder = [
+  { id: 'room',        label: 'Room' },
+  { id: 'mothersday',  label: "Mother's Day" },
+  { id: 'horses',      label: 'Horse pasture' },
+];
+const bgsEl = document.getElementById('bgs');
+
+function setBg(name, fromReact) {
+  bgMode = name;
+  document.body.classList.toggle('mothersday', name === 'mothersday');
+  document.body.classList.toggle('horses', name === 'horses');
+  stage.classList.toggle('mothersday', name === 'mothersday');
+  stage.classList.toggle('horses', name === 'horses');
+  for (const b of bgsEl.querySelectorAll('.chip')) {
+    b.classList.toggle('active', b.dataset.bg === name);
+  }
+  bgT0 = performance.now();
+  if (!fromReact) window.dispatchEvent(new CustomEvent('bgmodechange', { detail: name }));
+}
+window._setBg = (name) => setBg(name, true);
+for (const b of bgOrder) {
+  const btn = document.createElement('button');
+  btn.className = 'chip';
+  btn.dataset.bg = b.id;
+  btn.textContent = b.label;
+  btn.onclick = () => setBg(b.id);
+  bgsEl.appendChild(btn);
+}
+setBg('room');
+window.addEventListener('resize', () => { fitBg(); });
+
+let current = 'sit';
+let stateStart = performance.now();
+
+const statesEl = document.getElementById('states');
+const nowEl = document.getElementById('now');
+const noteEl = document.getElementById('note');
+
+function setState(name, fromReact) {
+  current = name;
+  stateStart = performance.now();
+  for (const b of statesEl.querySelectorAll('.chip')) {
+    b.classList.toggle('active', b.dataset.state === name);
+  }
+  if (nowEl) nowEl.textContent = STATES[name].label;
+  if (noteEl) noteEl.textContent = STATES[name].note;
+  if (!fromReact) window.dispatchEvent(new CustomEvent('dogstatechange', { detail: name }));
+}
+window._setDogState = (name) => setState(name, true);
+
+for (const k of stateOrder) {
+  const btn = document.createElement('button');
+  btn.className = 'chip';
+  btn.dataset.state = k;
+  btn.textContent = STATES[k].label;
+  btn.onclick = () => setState(k);
+  statesEl.appendChild(btn);
+}
+setState('sit');
+
+// ── main loop ─────────────────────────────────────────────────────────────
+
+function tick() {
+  const now = performance.now();
+  const energyMult = ({ chill: 0.55, normal: 1.0, zoomies: 1.75 })[window.tweaks?.energy] || 1;
+  const t = ((now - stateStart) / 1000) * energyMult;
+
+  drawBackground();
+
+  const r = cv.getBoundingClientRect();
+  ctx.clearRect(0, 0, r.width, r.height);
+
+  const sc = Math.max(8, Math.min(22, Math.floor(Math.min(r.height, r.width) / 24)));
+  const cx = r.width / 2;
+  // On mobile the stage is shorter than the viewport, so 52% of stage floats
+  // the dog above the background horizon. Anchor feet to 67% of viewport height
+  // (just below the 65% horizon line shared by all backgrounds).
+  const stageTop = stage.getBoundingClientRect().top;
+  const footTarget = window.innerHeight * 0.57 - stageTop;
+  const cyDefault = r.height * 0.52;
+  const cy = (window.innerWidth <= 480 && footTarget - sc * H / 2 > 0)
+    ? footTarget - sc * H / 2
+    : cyDefault;
+
+  const tr = STATES[current].play(t);
+
+  const shadowSquish = (current === 'bounce')
+    ? 1 - Math.min(1, Math.abs(tr.dy || 0) / 26) * 0.5
+    : 1;
+  drawShadow(cx, cy + sc * (H/2 - 1), sc, shadowSquish);
+
+  drawSprite(tr.sprite, cx, cy, sc, tr);
+
+  requestAnimationFrame(tick);
+}
+tick();
+
+// ── tweaks button positioning ─────────────────────────────────────────────
+const legendEl = document.getElementById('legend');
+
+function updateTweaksBottom() {
+  if (window.innerWidth > 480) return;
+  const btn = document.querySelector('.twk-btn-trigger');
+  if (btn && legendEl) btn.style.bottom = (legendEl.offsetHeight + 8) + 'px';
+}
+new MutationObserver(updateTweaksBottom)
+  .observe(document.getElementById('tweaks-root'), { childList: true, subtree: true });
+window.addEventListener('resize', updateTweaksBottom);
+  </script>
+</body>
+</html>
