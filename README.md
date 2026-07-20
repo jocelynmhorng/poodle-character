@@ -26,7 +26,8 @@ Tia is a static pixel sprite - hand-tuned to one dog, not a generalized generato
 
 The goal was speed and precision over flexibility - going from a photo to a deployed, pixel-accurate character in a single sitting, entirely in one `index.html` file, with Claude Code handling the build.
 
-It's less "app" and more "portrait" - a small, complete piece rather than a partial system. And it doubled as a personal gift: I built and deployed it in time to share with my mom for Mother's Day. It is a fun play on bringing my pet to a digital interface, allowing for us family members not at home to interact and keep in touch via a fun app.
+It's less "app" and more "portrait" — a small, complete piece rather than a partial system. And it doubled as a personal gift: I built and deployed it in time to share with my mom for Mother's Day. It was a fun way to bring my pet into a digital interface, letting family members who aren't nearby interact with her and stay connected through the app.
+
 
 ## Stack
 
