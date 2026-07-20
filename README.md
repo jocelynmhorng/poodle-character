@@ -1,7 +1,6 @@
 # 🐩 Tia — Poodle Sprite Generator
 
-A pixel sprite generator built for my poodle, Tia — upload a photo and it generates a pixelated character sprite based on her coloring.
-
+A pixel sprite generator built for my poodle, Tia. It includes multiple themes and modes the dog can be in.
 Live demo: [tia-poodle.vercel.app](https://tia-poodle.vercel.app)
 
 Built with [Claude Code](https://claude.com/claude-code) as a fast, single-file prototype.
